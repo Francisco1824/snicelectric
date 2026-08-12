@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b356d"><title>SNIC Electric | Inspección</title>
+<link rel="stylesheet" href="css/inspection-styles.css">
+</head>
+<body>
+<header class="topbar no-print">
+  <div class="topbar-brand"><img src="assets/logo.png" alt="SNIC Electric"><div><strong>SNIC ELECTRIC</strong><span>Formato de inspección</span></div></div>
+  <nav class="topbar-actions"><a class="btn btn-light" href="dashboard.html">Panel</a><a class="btn btn-light" href="inspecciones.html">Inspecciones</a><a id="adminLink" class="btn btn-light hidden" href="usuarios.html">Usuarios</a><a id="reportsLink" class="btn btn-light hidden" href="reportes.html">Reportes</a><button class="btn btn-light" id="logoutBtn">Salir</button></nav>
+</header>
+<main class="container print-page">
+<div class="page-heading no-print">
+  <div><h1 id="formTitle">Nueva inspección</h1><p class="muted">El técnico que inició sesión queda asociado automáticamente.</p></div>
+  <div class="actions"><button class="btn btn-primary" type="submit" form="inspectionForm">Guardar</button><button class="btn btn-secondary" type="button" id="printBtn">Imprimir / PDF</button></div>
+</div>
+<form id="inspectionForm">
+<section class="document-sheet">
+  <div class="document-header">
+    <div class="company-block"><img class="document-logo" src="assets/logo.png" alt="SNIC Electric"></div>
+    <div class="inspection-meta">
+      <div class="meta-title">FORMATO DE INSPECCIÓN</div>
+      <label>FIE-<input id="formatNumber" class="inline-input" maxlength="8" placeholder="0000"></label>
+      <label>Fecha de emisión <input id="issueDate" type="date" required></label>
+      <label>Fecha de vencimiento <input id="expiryDate" type="date"></label>
+      <label>Forma de pago <input id="paymentMethod" placeholder="Contado"></label>
+      <label>Medio de pago <input id="paymentMeans" placeholder="Efectivo"></label>
+    </div>
+  </div>
+
+  <section class="form-section">
+    <div class="section-title">DATOS DE CLIENTE <span>⚡</span></div>
+    <div class="grid-2">
+      <label>Cliente/Razón social
+<select id="clientName" required>
+  <option value="">Seleccione un cliente registrado</option>
+</select>
+<input type="hidden" id="clientId">
+</label><label>Teléfono<input id="phone" readonly></label>
+      <label>NIT/CC<input id="documentNumber"></label><label>Correo electrónico<input id="email" type="email"></label>
+      <label>Dirección<input id="address"></label><label>Tipo de Cliente<select id="clientType"><option>Residencial</option><option>Comercial</option><option>Industrial</option><option>Institucional</option></select></label>
+      <label>Ciudad<input id="city" value="Cúcuta"></label>
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="section-title">DATOS TÉCNICOS <span>⚡</span></div>
+    <div class="grid-2">
+      <label>Tipo de acometida<input id="acometida"></label><label>Capacidad instalada<input id="installedCapacity"></label>
+      <label>Voltaje<input id="voltage"></label><label>Número de circuitos<input id="circuits"></label>
+      <label>Frecuencia<input id="frequency"></label><label>Edad aproximada de instalación<input id="installationAge"></label>
+    </div>
+  </section>
+
+  <section class="form-section technician-section">
+    <div class="section-title">TÉCNICO RESPONSABLE <span>⚡</span></div>
+    <div class="grid-2">
+      <label>Nombre del técnico<input id="technicianName" readonly></label>
+      <label>Documento / Cédula<input id="technicianDocument" readonly></label>
+      <label>Teléfono<input id="technicianPhone" readonly></label>
+      <label>Correo electrónico<input id="technicianEmail" readonly></label>
+      <label>Tarjeta profesional / matrícula<input id="technicianLicense" readonly></label>
+      <label>Especialidad<input id="technicianSpecialty" readonly></label>
+    </div>
+  </section>
+
+  <section class="inspection-table-section"><table class="check-table"><thead><tr><th>ITEM</th><th>CUMPLE</th><th>NO CUMPLE</th><th>OBSERVACIONES</th></tr></thead><tbody id="checklistBody"></tbody></table></section>
+
+  <section class="form-section">
+    <div class="section-title">PARÁMETROS</div>
+    <table class="parameter-table"><thead><tr><th>PARÁMETRO</th><th>RESULTADO</th><th>UNIDAD</th></tr></thead><tbody>
+      <tr><td>Voltaje Fase - Neutro</td><td><input name="param_phase_neutral"></td><td>V</td></tr>
+      <tr><td>Voltaje Fase - Fase</td><td><input name="param_phase_phase"></td><td>V</td></tr>
+      <tr><td>Corriente</td><td><input name="param_current"></td><td>A</td></tr>
+      <tr><td>Frecuencia</td><td><input name="param_frequency"></td><td>Hz</td></tr>
+      <tr><td>Resistencia Puesta Tierra</td><td><input name="param_ground"></td><td>Ω</td></tr>
+      <tr><td>Resistencia Aislamiento</td><td><input name="param_insulation"></td><td>MΩ</td></tr>
+    </tbody></table>
+  </section>
+
+  <section class="form-section photos-section">
+    <div class="section-title">FOTOS</div>
+    <p class="photo-help no-print">En el celular toca cada cuadro para abrir la cámara.</p>
+    <div id="photosGrid" class="photos-grid"></div>
+  </section>
+
+  <section class="signature-section">
+    <label>Observaciones generales<textarea id="generalObservations" rows="4"></textarea></label>
+    <div class="signature-grid"><div class="signature-line">Firma técnico</div><div class="signature-line">Firma cliente</div></div>
+  </section>
+</section>
+</form>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase-client.js"></script><script src="js/inspection-app.js"></script>
+<script>
+(function(){
+  function esc(v){
+    return String(v ?? "").replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[m]));
+  }
+
+  function getDB(){
+    try { return JSON.parse(localStorage.getItem("snic_db") || "{}"); }
+    catch(e){ return {}; }
+  }
+
+  function getClients(){
+    const db = getDB();
+    return Array.isArray(db.clientes) ? db.clientes :
+           Array.isArray(db.clients) ? db.clients : [];
+  }
+
+  function val(c, keys){
+    for(const k of keys){
+      if(c && c[k] !== undefined && c[k] !== null && String(c[k]).trim() !== "")
+        return c[k];
+    }
+    return "";
+  }
+
+  function loadRegisteredClients(){
+    const select = document.getElementById("clientName");
+    if(!select) return;
+
+    const clients = getClients();
+    select.innerHTML =
+      '<option value="">Seleccione un cliente registrado</option>' +
+      clients.map(c => {
+        const id = val(c,["id","uid","document","doc","nit"]);
+        const name = val(c,["nombre","name","razonSocial","razon_social"]);
+        const doc = val(c,["doc","document","nit"]);
+        return `<option value="${esc(name)}" data-client-id="${esc(id)}">
+          ${esc(name)}${doc ? " — " + esc(doc) : ""}
+        </option>`;
+      }).join("");
+
+    select.addEventListener("change", function(){
+      const selected = clients.find(c => {
+        const id = val(c,["id","uid","document","doc","nit"]);
+        const name = val(c,["nombre","name","razonSocial","razon_social"]);
+        return String(id) === String(this.selectedOptions[0]?.dataset.clientId || "") ||
+               String(name) === String(this.value);
+      });
+
+      if(!selected) return;
+
+      document.getElementById("clientId").value =
+        val(selected,["id","uid","document","doc","nit"]);
+
+      const map = {
+        phone:["telefono","phone","tel"],
+        documentNumber:["doc","document","nit"],
+        email:["email","correo"],
+        address:["direccion","address"],
+        city:["ciudad","city"]
+      };
+
+      Object.entries(map).forEach(([field,keys])=>{
+        const el=document.getElementById(field);
+        if(el) el.value=val(selected,keys);
+      });
+    });
+
+    if(!clients.length){
+      select.insertAdjacentHTML("afterend",
+        '<small class="muted">No hay clientes registrados. Primero registre el cliente en Clientes.</small>');
+    }
+  }
+
+  // Block saving if the selected client is not from Clientes.
+  document.addEventListener("DOMContentLoaded", function(){
+    loadRegisteredClients();
+
+    const form=document.getElementById("inspectionForm");
+    if(form){
+      form.addEventListener("submit", function(ev){
+        const select=document.getElementById("clientName");
+        const id=document.getElementById("clientId");
+        if(!select || !select.value || !id || !id.value){
+          ev.preventDefault();
+          ev.stopImmediatePropagation();
+          alert("Debe seleccionar un cliente registrado en el módulo Clientes.");
+          return false;
+        }
+      }, true);
+    }
+  });
+})();
+</script>
+
+</body></html>

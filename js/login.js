@@ -1,0 +1,3 @@
+(()=>{
+document.getElementById('loginForm').onsubmit=async e=>{e.preventDefault();const msg=document.getElementById('mensaje');msg.textContent='Iniciando sesión...';msg.className='';const email=document.getElementById('usuario').value.trim(),password=document.getElementById('password').value;try{const {data,error}=await snicSupabase.auth.signInWithPassword({email,password});if(error)throw error;await snicAuth.require();location.href='dashboard.html'}catch(err){msg.textContent=err.message||'No fue posible iniciar sesión.';msg.className='error'}};
+})();

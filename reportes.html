@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b356d"><title>SNIC Electric | Reportes</title>
+<link rel="stylesheet" href="css/inspection-styles.css"></head>
+<body>
+<header class="topbar no-print"><div class="topbar-brand"><img src="assets/logo.png" alt="SNIC Electric"><div><strong>SNIC ELECTRIC</strong><span>Reportes administrativos</span></div></div>
+<nav class="topbar-actions"><a class="btn btn-light" href="dashboard.html">Panel</a><a class="btn btn-light" href="inspecciones.html">Inspecciones</a><a class="btn btn-light" href="usuarios.html">Usuarios</a><button class="btn btn-light" id="logoutBtn">Salir</button></nav></header>
+<main class="container">
+<div class="page-heading no-print"><div><h1>Reportes</h1><p class="muted">Módulo exclusivo del administrador.</p></div><button class="btn btn-secondary" id="printReportBtn">Imprimir / PDF</button></div>
+<section class="card no-print"><h2>Filtros del reporte</h2>
+<div class="report-filters">
+<label>Periodo<select id="reportPeriod"><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="annual">Anual</option></select></label>
+<label>Año<select id="reportYear"></select></label>
+<label id="monthField">Mes<select id="reportMonth">
+<option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></label>
+<label id="quarterField" class="hidden">Trimestre<select id="reportQuarter"><option value="1">1er trimestre (Ene - Mar)</option><option value="2">2do trimestre (Abr - Jun)</option><option value="3">3er trimestre (Jul - Sep)</option><option value="4">4to trimestre (Oct - Dic)</option></select></label>
+<label>Técnico<select id="reportTechnician"></select></label>
+</div></section>
+<section class="report-sheet">
+<div class="report-header"><img src="assets/logo.png" alt="SNIC Electric"><div><h2 id="reportTitle">Reporte mensual</h2><p id="reportSubtitle"></p></div></div>
+<div class="report-cards">
+<div class="report-stat"><span>Inspecciones</span><strong id="totalInspections">0</strong></div>
+<div class="report-stat"><span>Clientes</span><strong id="totalClients">0</strong></div>
+<div class="report-stat"><span>Técnicos</span><strong id="totalTechnicians">0</strong></div>
+<div class="report-stat"><span>Promedio por técnico</span><strong id="averagePerTech">0</strong></div>
+</div>
+<section class="report-section"><h3>Resumen por técnico</h3><div class="table-wrap"><table class="report-table"><thead><tr><th>Técnico</th><th>Especialidad</th><th>Inspecciones</th><th>Clientes</th><th>Última inspección</th></tr></thead><tbody id="technicianReportBody"></tbody></table></div><div id="reportEmpty" class="empty hidden">No hay inspecciones para el periodo seleccionado.</div></section>
+<section class="report-section"><h3>Actividad</h3><div id="activityBars" class="activity-bars"></div></section>
+<section class="report-section"><h3>Detalle de inspecciones</h3><div class="table-wrap"><table class="report-table"><thead><tr><th>Fecha</th><th>Formato</th><th>Cliente</th><th>Técnico</th><th>Orden</th></tr></thead><tbody id="detailReportBody"></tbody></table></div></section>
+</section></main><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase-client.js"></script><script src="js/inspection-app.js"></script></body></html>

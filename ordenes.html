@@ -1,0 +1,44 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Órdenes de servicio | SNIC'ELECTRIC</title><link rel="stylesheet" href="css/inspection-styles.css"></head><body><header class="topbar no-print"><div class="topbar-brand"><img src="assets/logo.png"><div><strong>SNIC ELECTRIC</strong><span>Órdenes de servicio</span></div></div><nav class="topbar-actions"><a class="btn btn-light" href="dashboard.html">Panel</a><a class="btn btn-light" href="inspecciones.html">Inspecciones</a><button class="btn btn-light" id="logoutBtn">Salir</button></nav></header><main class="container"><div class="page-heading"><div><h1>Órdenes de servicio</h1><p class="muted">Módulo preparado para integrar las órdenes con clientes, cotizaciones e inspecciones.</p></div></div><section class="card"><h2>Orden de servicio</h2><p>Desde esta sección puedes centralizar la orden que origina una inspección. La versión actual conserva el formato de inspección y el sistema de documentos comerciales en el dashboard.</p><a class="btn btn-primary" href="formulario.html">Crear inspección asociada</a></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase-client.js"></script><script src="js/inspection-app.js"></script>
+<script>
+const OKEY="snic_orders_v1";
+function getOrders(){return JSON.parse(localStorage.getItem(OKEY)||"[]")}
+function saveOrders(x){localStorage.setItem(OKEY,JSON.stringify(x))}
+function me(){return currentUser()}
+function esc2(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function osNumber(){
+ const u=me(), d=(u?.document||"").replace(/\D/g,""), last3=(d.slice(-3)||"000").padStart(3,"0"), now=new Date();
+ const dd=String(now.getDate()).padStart(2,"0"), mm=String(now.getMonth()+1).padStart(2,"0"), key=now.toISOString().slice(0,10);
+ const n=getOrders().filter(x=>x.createdBy===u.id&&x.dayKey===key).length+1;
+ return `OS-${last3}${dd}${mm}-${String(n).padStart(2,"0")}`;
+}
+function showOrders(){
+ const list=getOrders().filter(x=>me()?.role==="admin"||x.createdBy===me()?.id);
+ document.querySelector("main").innerHTML=`<div class="page-heading"><div><h1>Órdenes de servicio</h1><p class="muted">Cada orden se identifica automáticamente según el documento del usuario y el día de creación.</p></div><button class="btn btn-primary" onclick="newOrder()">+ Nueva orden</button></div>
+ <section class="card"><div class="table-wrap"><table><thead><tr><th>OS</th><th>Cliente</th><th>Fecha</th><th>Responsable</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+ ${list.map(x=>`<tr><td><b>${x.number}</b></td><td>${esc2(x.client)}</td><td>${esc2(x.date)}</td><td>${esc2(x.worker)}</td><td>${esc2(x.status)}</td><td><button class="btn btn-secondary" onclick="printOS('${x.id}')">Imprimir/PDF</button></td></tr>`).join("")||'<tr><td colspan="6">No hay órdenes.</td></tr>'}</tbody></table></div></section>`;
+}
+function newOrder(){
+ const clients=JSON.parse(localStorage.getItem("snic_db")||"{}").clientes||[];
+ if(!clients.length){alert("No hay clientes registrados. Primero debes crear el cliente en el módulo Clientes.");return}
+ document.querySelector("main").innerHTML=`<div class="page-heading"><div><h1>Nueva orden de servicio</h1><p class="muted">Número generado: <b>${osNumber()}</b></p></div></div><section class="card"><div class="form-grid">
+ <label>Cliente registrado en Clientes<select id="oc" required><option value="">Seleccione un cliente registrado</option>${clients.map(c=>`<option value="${esc2(c.id)}">${esc2(c.nombre)}${c.doc?` — ${esc2(c.doc)}`:""}</option>`).join("")}</select><small class="muted">La orden solo puede asociarse a un cliente creado previamente en el módulo Clientes.</small></label><label>Fecha<input id="od" type="date" value="${new Date().toISOString().slice(0,10)}"></label>
+ <label>Responsable<input id="ow" value="${esc2(me().fullName)}"></label><label>Estado<select id="os"><option>Pendiente</option><option>En proceso</option><option>Terminada</option></select></label>
+ <label style="grid-column:1/-1">Descripción<textarea id="ox" rows="5" placeholder="Trabajo solicitado"></textarea></label>
+ <label style="grid-column:1/-1">Ubicación / obra<input id="ol"></label><label style="grid-column:1/-1">Observaciones<textarea id="oo" rows="4"></textarea></label>
+ </div><button class="btn btn-primary" onclick="saveOS()">Guardar orden</button> <button class="btn btn-light" onclick="showOrders()">Cancelar</button></section>`;
+}
+function saveOS(){
+ const db=JSON.parse(localStorage.getItem("snic_db")||"{}"); const clients=db.clientes||[];
+ const clientId=document.getElementById("oc").value; const client=clients.find(c=>c.id===clientId);
+ if(!client){alert("Debes seleccionar un cliente registrado en el módulo Clientes.");return}
+ const x=getOrders(), now=new Date(), dayKey=now.toISOString().slice(0,10), u=me();
+ x.push({id:"OS"+Date.now(),number:osNumber(),createdBy:u.id,dayKey,clientId:client.id,client:client.nombre,clientDoc:client.doc||"",clientPhone:client.telefono||"",clientEmail:client.email||"",clientAddress:client.direccion||"",date:document.getElementById("od").value,worker:document.getElementById("ow").value,status:document.getElementById("os").value,description:document.getElementById("ox").value,location:document.getElementById("ol").value,observations:document.getElementById("oo").value});
+ saveOrders(x); showOrders();
+}
+function printOS(id){
+ const x=getOrders().find(a=>a.id===id); document.body.innerHTML=`<main class="container"><article class="card"><img src="assets/logo.png" style="width:180px"><h1>ORDEN DE SERVICIO</h1><h2>${x.number}</h2><p><b>Cliente:</b> ${esc2(x.client)}<br><b>NIT / Cédula:</b> ${esc2(x.clientDoc||"")}<br><b>Teléfono:</b> ${esc2(x.clientPhone||"")}<br><b>Correo:</b> ${esc2(x.clientEmail||"")}<br><b>Dirección:</b> ${esc2(x.clientAddress||"")}<br><b>Fecha:</b> ${x.date}<br><b>Responsable:</b> ${esc2(x.worker)}</p><hr><h3>Trabajo solicitado</h3><p>${esc2(x.description)}</p><h3>Ubicación / obra</h3><p>${esc2(x.location)}</p><h3>Observaciones</h3><p>${esc2(x.observations)}</p><p><b>Estado:</b> ${esc2(x.status)}</p></article><button class="btn btn-primary no-print" onclick="window.print()">Imprimir / Guardar PDF</button></main>`;
+}
+requireLogin(); showOrders();
+</script></body></html>

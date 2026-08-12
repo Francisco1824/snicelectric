@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b356d"><title>SNIC Electric | Inspecciones</title>
+<link rel="stylesheet" href="css/inspection-styles.css">
+</head>
+<body>
+<header class="topbar no-print">
+  <div class="topbar-brand"><img src="assets/logo.png" alt="SNIC Electric"><div><strong>SNIC ELECTRIC</strong><span>Mantenimiento eléctrico</span></div></div>
+  <nav class="topbar-actions"><a class="btn btn-light" href="dashboard.html">Panel</a>
+    <a id="adminLink" class="btn btn-light hidden" href="usuarios.html">Usuarios</a><a id="reportsLink" class="btn btn-light hidden" href="reportes.html">Reportes</a>
+    <span id="loggedUser"></span><button class="btn btn-light" id="logoutBtn">Salir</button>
+  </nav>
+</header>
+<main class="container">
+  <div class="page-heading">
+    <div><h1>Inspecciones</h1><p class="muted">Crear, editar, consultar e imprimir formatos. El cliente se selecciona únicamente desde Clientes.</p></div>
+    <a class="btn btn-primary" href="formulario.html">+ Nueva inspección</a>
+  </div>
+  <section class="card">
+    <div class="toolbar"><input id="searchInspections" type="search" placeholder="Buscar por cliente, NIT/CC o técnico..."></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Formato</th><th>Cliente</th><th>Fecha</th><th>Técnico</th><th>Acciones</th></tr></thead>
+      <tbody id="inspectionTable"></tbody>
+    </table></div>
+    <div id="emptyState" class="empty hidden">No hay inspecciones guardadas.</div>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase-client.js"></script><script src="js/inspection-app.js"></script>
+</body></html>
+

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b356d"><title>SNIC Electric | Usuarios</title>
+<link rel="stylesheet" href="css/inspection-styles.css">
+</head>
+<body>
+<header class="topbar no-print">
+  <div class="topbar-brand"><img src="assets/logo.png" alt="SNIC Electric"><div><strong>SNIC ELECTRIC</strong><span>Administración de usuarios</span></div></div>
+  <nav class="topbar-actions"><a class="btn btn-light" href="dashboard.html">Panel</a><a class="btn btn-light" href="inspecciones.html">Inspecciones</a><a class="btn btn-light" href="reportes.html">Reportes</a><button class="btn btn-light" id="logoutBtn">Salir</button></nav>
+</header>
+<main class="container">
+  <div class="page-heading"><div><h1>Usuarios y técnicos</h1><p class="muted">El administrador puede crear técnicos y sus datos aparecerán automáticamente en sus inspecciones.</p></div></div>
+  <div class="admin-grid">
+    <section class="card">
+      <h2 id="userFormTitle">Nuevo usuario</h2>
+      <form id="userForm" class="stack">
+        <input type="hidden" id="userId">
+        <label>Nombre completo<input id="fullName" required></label>
+        <label>Usuario<input id="userName" required></label>
+        <label>Contraseña<input id="userPassword" type="password" required></label>
+        <label>Rol<select id="userRole"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select></label>
+        <label>Documento / Cédula<input id="techDocument"></label>
+        <label>Teléfono<input id="techPhone"></label>
+        <label>Correo electrónico<input id="techEmail" type="email"></label>
+        <label>Tarjeta profesional / matrícula<input id="techLicense"></label>
+        <label>Especialidad<input id="techSpecialty" placeholder="Electricista residencial"></label>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Guardar usuario</button><button class="btn btn-light" type="button" id="cancelUserEdit">Limpiar</button></div>
+        <div id="userMessage" class="alert hidden"></div>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Usuarios registrados</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Datos técnico</th><th>Acciones</th></tr></thead>
+        <tbody id="usersTable"></tbody>
+      </table></div>
+    </section>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="js/supabase-client.js"></script><script src="js/inspection-app.js"></script>
+</body></html>

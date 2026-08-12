@@ -1,480 +1,327 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods":
-    "POST, OPTIONS"
-};
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req) => {
 
-  if(req.method === "OPTIONS"){
-    return new Response(
-      "ok",
-      {
-        headers:corsHeaders
-      }
-    );
-  }
+  try {
 
-  try{
-
-    /*
-     * --------------------------------------------------
-     * 1. Obtener token del administrador actual
-     * --------------------------------------------------
-     */
+    if (req.method !== "POST") {
+      return new Response(
+        JSON.stringify({
+          error: "Método no permitido"
+        }),
+        {
+          status: 405,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
 
     const authHeader =
       req.headers.get("Authorization");
 
-    if(!authHeader){
-
+    if (!authHeader) {
       return new Response(
         JSON.stringify({
-          error:"No autenticado."
+          error: "No autorizado"
         }),
         {
-          status:401,
-          headers:{
-            ...corsHeaders,
-            "Content-Type":
-              "application/json"
+          status: 401,
+          headers: {
+            "Content-Type": "application/json"
           }
         }
       );
     }
 
-    const token =
-      authHeader.replace(
-        "Bearer ",
-        ""
-      );
+    const SUPABASE_URL =
+      Deno.env.get("SUPABASE_URL")!;
+
+    const SUPABASE_ANON_KEY =
+      Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    const SUPABASE_SERVICE_ROLE_KEY =
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
 
     /*
-     * --------------------------------------------------
-     * 2. Cliente normal
-     * --------------------------------------------------
+     * Cliente usando la sesión del administrador
      */
-
-    const supabaseUrl =
-      Deno.env.get(
-        "SUPABASE_URL"
-      )!;
-
-    const publishableKey =
-      Deno.env.get(
-        "SUPABASE_ANON_KEY"
-      ) ||
-      Deno.env.get(
-        "SUPABASE_PUBLISHABLE_KEY"
-      )!;
-
-    const supabase =
-      createClient(
-        supabaseUrl,
-        publishableKey,
-        {
-          global:{
-            headers:{
-              Authorization:
-                `Bearer ${token}`
-            }
+    const userClient = createClient(
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+      {
+        global: {
+          headers: {
+            Authorization: authHeader
           }
         }
-      );
-
-    /*
-     * --------------------------------------------------
-     * 3. Identificar usuario actual
-     * --------------------------------------------------
-     */
-
-    const {
-      data:{
-        user:currentUser
-      },
-      error:userError
-    }=
-      await supabase.auth.getUser();
-
-    if(
-      userError ||
-      !currentUser
-    ){
-
-      return new Response(
-        JSON.stringify({
-          error:"Sesión inválida."
-        }),
-        {
-          status:401,
-          headers:{
-            ...corsHeaders,
-            "Content-Type":
-              "application/json"
-          }
-        }
-      );
-    }
-
-    /*
-     * --------------------------------------------------
-     * 4. Cliente administrativo
-     * --------------------------------------------------
-     */
-
-    const serviceRoleKey =
-      Deno.env.get(
-        "SUPABASE_SERVICE_ROLE_KEY"
-      );
-
-    if(!serviceRoleKey){
-
-      throw new Error(
-        "Falta SUPABASE_SERVICE_ROLE_KEY."
-      );
-    }
-
-    const admin =
-      createClient(
-        supabaseUrl,
-        serviceRoleKey
-      );
-
-    /*
-     * --------------------------------------------------
-     * 5. Comprobar que quien crea el usuario
-     *    es Administrador
-     * --------------------------------------------------
-     */
-
-    const {
-      data:role,
-      error:roleError
-    }=
-      await admin.rpc(
-        "mi_rol",
-        {
-          p_user_id:currentUser.id
-        }
-      );
-
-    /*
-     * Si tu RPC mi_rol no acepta p_user_id,
-     * usamos el perfil directamente.
-     */
-
-    let currentRole=role;
-
-    if(roleError){
-
-      const {
-        data:profile
-      }=
-        await admin
-          .from("perfiles")
-          .select("rol_id")
-          .eq(
-            "id",
-            currentUser.id
-          )
-          .maybeSingle();
-
-      if(profile?.rol_id){
-
-        const {
-          data:r
-        }=
-          await admin
-            .from("roles")
-            .select("nombre")
-            .eq(
-              "id",
-              profile.rol_id
-            )
-            .maybeSingle();
-
-        currentRole=r?.nombre;
       }
-    }
+    );
 
-    if(
-      String(currentRole)
-        .toLowerCase()
-        !==
-      "administrador"
-    ){
 
+    /*
+     * Comprobar administrador
+     */
+    const {
+      data: {
+        user: adminUser
+      },
+      error: adminError
+    } = await userClient.auth.getUser();
+
+
+    if (adminError || !adminUser) {
       return new Response(
         JSON.stringify({
-          error:
-            "Solo un Administrador puede crear usuarios."
+          error: "Sesión no válida."
         }),
         {
-          status:403,
-          headers:{
-            ...corsHeaders,
-            "Content-Type":
-              "application/json"
+          status: 401,
+          headers: {
+            "Content-Type": "application/json"
           }
         }
       );
     }
 
+
     /*
-     * --------------------------------------------------
-     * 6. Recibir datos
-     * --------------------------------------------------
+     * Cliente administrativo
      */
+    const adminClient = createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY
+    );
 
-    const body =
-      await req.json();
 
+    /*
+     * Comprobar rol del administrador
+     */
     const {
-      nombre,
-      apellido,
-      documento,
-      telefono,
-      email,
-      password,
-      rol_id,
-      activo=true
-    }=body;
+      data: adminProfile,
+      error: profileError
+    } = await adminClient
+      .from("perfiles")
+      .select(`
+        id,
+        rol_id,
+        roles (
+          id,
+          nombre
+        )
+      `)
+      .eq("id", adminUser.id)
+      .maybeSingle();
 
-    /*
-     * --------------------------------------------------
-     * 7. Validaciones
-     * --------------------------------------------------
-     */
 
-    if(!nombre){
+    if (profileError) {
+      throw profileError;
+    }
 
-      throw new Error(
-        "El nombre es obligatorio."
+
+    const roleName =
+      adminProfile?.roles?.nombre || "";
+
+
+    if (roleName !== "Administrador") {
+
+      return new Response(
+        JSON.stringify({
+          error: "Solo un Administrador puede crear usuarios."
+        }),
+        {
+          status: 403,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
       );
     }
 
-    if(!email){
 
+    /*
+     * Datos enviados desde dashboard.js
+     */
+    const body = await req.json();
+
+    const email =
+      String(body.email || "")
+        .trim()
+        .toLowerCase();
+
+    const password =
+      String(body.password || "");
+
+    const nombre =
+      String(body.nombre || "").trim();
+
+    const apellido =
+      String(body.apellido || "").trim();
+
+    const documento =
+      String(body.documento || "").trim();
+
+    const telefono =
+      String(body.telefono || "").trim();
+
+    const rol_id =
+      body.rol_id;
+
+    const activo =
+      body.activo !== false;
+
+
+    if (!email) {
       throw new Error(
         "El correo es obligatorio."
       );
     }
 
-    if(!password){
-
+    if (password.length < 6) {
       throw new Error(
-        "La contraseña es obligatoria."
+        "La contraseña debe tener mínimo 6 caracteres."
       );
     }
 
-    if(password.length < 6){
-
+    if (!nombre) {
       throw new Error(
-        "La contraseña debe tener al menos 6 caracteres."
+        "El nombre es obligatorio."
       );
     }
 
-    if(!rol_id){
-
+    if (!rol_id) {
       throw new Error(
-        "Debes seleccionar un rol."
+        "El rol es obligatorio."
       );
     }
+
 
     /*
-     * --------------------------------------------------
-     * 8. Comprobar rol
-     * --------------------------------------------------
+     * Crear usuario en Supabase Auth
      */
-
     const {
-      data:roleData,
-      error:roleDataError
-    }=
-      await admin
-        .from("roles")
-        .select("id,nombre")
-        .eq("id",rol_id)
-        .maybeSingle();
-
-    if(
-      roleDataError ||
-      !roleData
-    ){
-
-      throw new Error(
-        "El rol seleccionado no existe."
-      );
-    }
-
-    /*
-     * --------------------------------------------------
-     * 9. Crear usuario en Auth
-     * --------------------------------------------------
-     */
-
-    const {
-      data:authData,
-      error:authError
-    }=
-      await admin.auth.admin.createUser({
+      data: authData,
+      error: authError
+    } =
+      await adminClient.auth.admin.createUser({
 
         email,
 
         password,
 
-        email_confirm:true,
+        email_confirm: true,
 
-        user_metadata:{
+        user_metadata: {
           full_name:
-            `${nombre} ${apellido||""}`
-              .trim(),
+            `${nombre} ${apellido}`.trim(),
 
-          document:
-            documento || "",
-
-          phone:
-            telefono || ""
+          document: documento
         }
 
       });
 
-    if(authError){
 
+    if (authError) {
       throw authError;
     }
 
-    const newUser=
+
+    const newUser =
       authData.user;
 
-    if(!newUser){
-
-      throw new Error(
-        "Supabase no devolvió el usuario creado."
-      );
-    }
 
     /*
-     * --------------------------------------------------
-     * 10. Crear perfil
-     * --------------------------------------------------
+     * Crear perfil
      */
-
     const {
-      error:profileError
-    }=
-      await admin
+      error: insertProfileError
+    } =
+      await adminClient
         .from("perfiles")
         .insert({
 
-          id:newUser.id,
-
-          nombre,
-
-          apellido:
-            apellido || null,
-
-          documento:
-            documento || null,
-
-          telefono:
-            telefono || null,
-
-          email,
-
-          rol_id,
-
-          activo:
-            activo !== false
-
-        });
-
-    if(profileError){
-
-      /*
-       * Si falla el perfil,
-       * eliminamos el usuario Auth
-       * para no dejar datos incompletos.
-       */
-
-      await admin.auth.admin.deleteUser(
-        newUser.id
-      );
-
-      throw profileError;
-    }
-
-    /*
-     * --------------------------------------------------
-     * 11. Respuesta
-     * --------------------------------------------------
-     */
-
-    return new Response(
-
-      JSON.stringify({
-
-        ok:true,
-
-        user:{
-          id:newUser.id,
-
-          email:newUser.email,
+          id: newUser.id,
 
           nombre,
 
           apellido,
 
+          documento,
+
+          telefono,
+
+          email,
+
           rol_id,
 
-          rol:roleData.nombre
-        }
+          activo
 
-      }),
+        });
 
-      {
-        status:200,
 
-        headers:{
-          ...corsHeaders,
-          "Content-Type":
-            "application/json"
-        }
-      }
+    if (insertProfileError) {
 
-    );
+      /*
+       * Si falla el perfil,
+       * eliminamos el Auth creado.
+       */
+      await adminClient.auth.admin.deleteUser(
+        newUser.id
+      );
 
-  }catch(error){
+      throw insertProfileError;
+    }
 
-    console.error(
-      "crear-usuario:",
-      error
-    );
 
     return new Response(
-
       JSON.stringify({
 
-        error:
-          error?.message ||
-          "No se pudo crear el usuario."
+        ok: true,
+
+        user: {
+          id: newUser.id,
+
+          email: newUser.email,
+
+          nombre,
+
+          apellido,
+
+          rol_id
+
+        }
 
       }),
-
       {
-        status:400,
+        status: 200,
 
-        headers:{
-          ...corsHeaders,
+        headers: {
           "Content-Type":
             "application/json"
         }
       }
+    );
 
+  } catch (error) {
+
+    console.error(error);
+
+    return new Response(
+      JSON.stringify({
+        error:
+          error?.message ||
+          "Error creando usuario."
+      }),
+      {
+        status: 400,
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        }
+      }
     );
   }
 

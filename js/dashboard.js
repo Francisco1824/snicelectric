@@ -220,11 +220,281 @@ function administration(){
  const permsFor=rid=>adminState.rolePermissions.filter(x=>x.rol_id===rid).map(x=>adminState.permissions.find(p=>p.id===x.permiso_id)).filter(Boolean).map(p=>p.nombre||p.codigo).join(', ');
  return `<div class="page"><div class="toolbar"><button class="btn" id="refreshAdmin">↻ Actualizar</button><button class="btn secondary" id="newRole">+ Nuevo rol</button></div><div class="panel" style="margin-bottom:18px"><h3>Usuarios y roles</h3><p class="small">Esta sección está conectada directamente con Supabase. El rol se toma de <b>perfiles → roles</b>; los permisos se toman de <b>rol_permisos</b>.</p></div><div class="grid2"><div class="panel tablewrap"><h3>Usuarios</h3><table class="table"><thead><tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${adminState.profiles.length?adminState.profiles.map(u=>`<tr><td>${esc(u.email||'')}</td><td>${esc([u.nombre,u.apellido].filter(Boolean).join(' ')||'—')}</td><td>${esc(roleName(u.rol_id))}</td><td><span class="status ${u.activo!==false?'ok':'off'}">${u.activo!==false?'Activo':'Inactivo'}</span></td><td class="actions"><button class="mini" data-edit-profile="${u.id}">Editar</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">No hay perfiles registrados.</td></tr>'}</tbody></table></div><div class="panel tablewrap"><h3>Roles y permisos</h3><table class="table"><thead><tr><th>Rol</th><th>Permisos</th><th>Acciones</th></tr></thead><tbody>${adminState.roles.length?adminState.roles.map(r=>`<tr><td>${esc(r.nombre)}</td><td>${esc(permsFor(r.id)||'Sin permisos')}</td><td><button class="mini" data-edit-role="${r.id}">Editar</button></td></tr>`).join(''):'<tr><td colspan="3" class="empty">No hay roles registrados.</td></tr>'}</tbody></table></div></div></div>`;
 }
-function userForm(item={}){
- const roles=adminState.roles;modal('Editar usuario',`<form id="profileForm"><div class="formgrid"><div class="field"><label>Nombre</label><input name="nombre" required value="${esc(item.nombre||'')}"></div><div class="field"><label>Apellido</label><input name="apellido" value="${esc(item.apellido||'')}"></div><div class="field"><label>Documento</label><input name="documento" value="${esc(item.documento||'')}"></div><div class="field"><label>Teléfono</label><input name="telefono" value="${esc(item.telefono||'')}"></div><div class="field"><label>Correo</label><input name="email" type="email" value="${esc(item.email||'')}"></div><div class="field"><label>Rol</label><select name="rol_id">${roles.map(r=>`<option value="${r.id}" ${r.id===item.rol_id?'selected':''}>${esc(r.nombre)}</option>`).join('')}</select></div><div class="field"><label>Estado</label><select name="activo"><option value="true" ${item.activo!==false?'selected':''}>Activo</option><option value="false" ${item.activo===false?'selected':''}>Inactivo</option></select></div></div><div class="modalfoot"><button type="button" class="btn secondary" id="cancel">Cancelar</button><button class="btn">Guardar</button></div></form>`);$('#profileForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.activo=d.activo==='true';try{const {error}=await snicSupabase.from('perfiles').update(d).eq('id',item.id);if(error)throw error;close();await loadAdministrationFromSupabase();render('administracion')}catch(err){alert('No se pudo actualizar el usuario: '+err.message)}}}
-const perms=['dashboard','clientes','inventario','cotizaciones','facturas','reportes','administracion','configuracion','ordenes','inspecciones','informes','trimestrales'];
-const labels={dashboard:'Dashboard',clientes:'Clientes',inventario:'Inventario',cotizaciones:'Cotizaciones',facturas:'Facturas',reportes:'Reportes',administracion:'Administración',configuracion:'Configuración',ordenes:'Órdenes de servicio',inspecciones:'Inspecciones',informes:'Informes de trabajo en obra',trimestrales:'Informes trimestrales'};
-function roleForm(item={}){const selected=new Set(adminState.rolePermissions.filter(x=>x.rol_id===item.id).map(x=>x.permiso_id));const codeOf=p=>String(p.codigo||p.nombre||'').toLowerCase().replace(/\s+/g,'_');modal(item.id?'Editar rol':'Nuevo rol',`<form id="roleForm"><div class="formgrid"><div class="field full"><label>Nombre del rol</label><input name="nombre" required value="${esc(item.nombre||'')}"></div><div class="field full"><label>Permisos del rol</label><div class="permission-grid">${adminState.permissions.map(p=>`<label class="check"><input type="checkbox" name="perm" value="${p.id}" ${selected.has(p.id)?'checked':''}> ${esc(p.nombre||p.codigo||'Permiso')}</label>`).join('')}</div></div></div><div class="modalfoot"><button type="button" class="btn secondary" id="cancel">Cancelar</button><button class="btn">Guardar rol</button></div></form>`);$('#roleForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{let rid=item.id;if(rid){const r=await snicSupabase.from('roles').update({nombre:d.nombre}).eq('id',rid);if(r.error)throw r.error}else{const r=await snicSupabase.from('roles').insert({nombre:d.nombre}).select().single();if(r.error)throw r.error;rid=r.data.id}const ids=[...e.target.querySelectorAll('input[name=perm]:checked')].map(x=>x.value);const del=await snicSupabase.from('rol_permisos').delete().eq('rol_id',rid);if(del.error)throw del.error;if(ids.length){const ins=await snicSupabase.from('rol_permisos').insert(ids.map(id=>({rol_id:rid,permiso_id:id})));if(ins.error)throw ins.error}close();await loadAdministrationFromSupabase();render('administracion')}catch(err){alert('No se pudo guardar el rol: '+err.message)}}}
+function userForm(item = {}) {
+  const editing = !!item.id;
+  const roles = adminState.roles || [];
+
+  modal(
+    editing ? 'Editar usuario' : 'Nuevo usuario',
+    `
+    <form id="profileForm">
+
+      <div class="formgrid">
+
+        <div class="field">
+          <label>Nombre *</label>
+          <input
+            name="nombre"
+            required
+            value="${esc(item.nombre || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Apellido</label>
+          <input
+            name="apellido"
+            value="${esc(item.apellido || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Documento</label>
+          <input
+            name="documento"
+            value="${esc(item.documento || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Teléfono</label>
+          <input
+            name="telefono"
+            value="${esc(item.telefono || '')}"
+          >
+        </div>
+
+        <div class="field">
+          <label>Correo *</label>
+          <input
+            name="email"
+            type="email"
+            required
+            value="${esc(item.email || '')}"
+          >
+        </div>
+
+        ${
+          editing
+            ? ''
+            : `
+            <div class="field">
+              <label>Contraseña inicial *</label>
+              <input
+                name="password"
+                type="password"
+                minlength="6"
+                required
+                autocomplete="new-password"
+              >
+              <small class="small">
+                Mínimo 6 caracteres.
+              </small>
+            </div>
+            `
+        }
+
+        <div class="field">
+          <label>Rol *</label>
+          <select name="rol_id" required>
+            <option value="">Seleccione...</option>
+
+            ${roles.map(r => `
+              <option
+                value="${esc(r.id)}"
+                ${String(r.id) === String(item.rol_id || '') ? 'selected' : ''}
+              >
+                ${esc(r.nombre)}
+              </option>
+            `).join('')}
+
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Estado</label>
+          <select name="activo">
+            <option
+              value="true"
+              ${item.activo !== false ? 'selected' : ''}
+            >
+              Activo
+            </option>
+
+            <option
+              value="false"
+              ${item.activo === false ? 'selected' : ''}
+            >
+              Inactivo
+            </option>
+          </select>
+        </div>
+
+      </div>
+
+      <div class="modalfoot">
+
+        <button
+          type="button"
+          class="btn secondary"
+          id="cancel"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="submit"
+          class="btn"
+          id="saveProfile"
+        >
+          ${editing ? 'Guardar cambios' : 'Crear usuario'}
+        </button>
+
+      </div>
+
+    </form>
+    `
+  );
+
+  $('#profileForm').onsubmit = async e => {
+
+    e.preventDefault();
+
+    const btn = $('#saveProfile');
+
+    btn.disabled = true;
+    btn.textContent = editing
+      ? 'Guardando...'
+      : 'Creando usuario...';
+
+    try {
+
+      const d = Object.fromEntries(
+        new FormData(e.target)
+      );
+
+      d.activo = d.activo === 'true';
+
+      if (!d.nombre.trim()) {
+        throw new Error('El nombre es obligatorio.');
+      }
+
+      if (!d.email.trim()) {
+        throw new Error('El correo es obligatorio.');
+      }
+
+      if (!d.rol_id) {
+        throw new Error('Selecciona un rol.');
+      }
+
+      /*
+       * EDITAR USUARIO
+       */
+      if (editing) {
+
+        const payload = {
+          nombre: d.nombre.trim(),
+          apellido: d.apellido.trim(),
+          documento: d.documento.trim(),
+          telefono: d.telefono.trim(),
+          email: d.email.trim(),
+          rol_id: d.rol_id,
+          activo: d.activo
+        };
+
+        const { error } =
+          await snicSupabase
+            .from('perfiles')
+            .update(payload)
+            .eq('id', item.id);
+
+        if (error) throw error;
+
+      }
+
+      /*
+       * CREAR USUARIO
+       */
+      else {
+
+        if (!d.password || d.password.length < 6) {
+          throw new Error(
+            'La contraseña debe tener mínimo 6 caracteres.'
+          );
+        }
+
+        const { data: sessionData } =
+          await snicSupabase.auth.getSession();
+
+        const accessToken =
+          sessionData?.session?.access_token;
+
+        if (!accessToken) {
+          throw new Error(
+            'La sesión del administrador no está disponible.'
+          );
+        }
+
+        const response = await fetch(
+          'https://kqygenlkwpfscfcxbaxv.supabase.co/functions/v1/crear-usuario',
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`
+            },
+
+            body: JSON.stringify({
+              email: d.email.trim(),
+              password: d.password,
+              nombre: d.nombre.trim(),
+              apellido: d.apellido.trim(),
+              documento: d.documento.trim(),
+              telefono: d.telefono.trim(),
+              rol_id: d.rol_id,
+              activo: d.activo
+            })
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            result?.error ||
+            result?.message ||
+            'No se pudo crear el usuario.'
+          );
+        }
+
+      }
+
+      close();
+
+      await loadAdministrationFromSupabase();
+
+      render('administracion');
+
+    } catch (err) {
+
+      console.error('Usuario:', err);
+
+      alert(
+        editing
+          ? `No se pudo actualizar el usuario: ${err.message}`
+          : `No se pudo crear el usuario: ${err.message}`
+      );
+
+      btn.disabled = false;
+
+      btn.textContent = editing
+        ? 'Guardar cambios'
+        : 'Crear usuario';
+    }
+  };
+}
+ function roleForm(item={}){const selected=new Set(adminState.rolePermissions.filter(x=>x.rol_id===item.id).map(x=>x.permiso_id));const codeOf=p=>String(p.codigo||p.nombre||'').toLowerCase().replace(/\s+/g,'_');modal(item.id?'Editar rol':'Nuevo rol',`<form id="roleForm"><div class="formgrid"><div class="field full"><label>Nombre del rol</label><input name="nombre" required value="${esc(item.nombre||'')}"></div><div class="field full"><label>Permisos del rol</label><div class="permission-grid">${adminState.permissions.map(p=>`<label class="check"><input type="checkbox" name="perm" value="${p.id}" ${selected.has(p.id)?'checked':''}> ${esc(p.nombre||p.codigo||'Permiso')}</label>`).join('')}</div></div></div><div class="modalfoot"><button type="button" class="btn secondary" id="cancel">Cancelar</button><button class="btn">Guardar rol</button></div></form>`);$('#roleForm').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));try{let rid=item.id;if(rid){const r=await snicSupabase.from('roles').update({nombre:d.nombre}).eq('id',rid);if(r.error)throw r.error}else{const r=await snicSupabase.from('roles').insert({nombre:d.nombre}).select().single();if(r.error)throw r.error;rid=r.data.id}const ids=[...e.target.querySelectorAll('input[name=perm]:checked')].map(x=>x.value);const del=await snicSupabase.from('rol_permisos').delete().eq('rol_id',rid);if(del.error)throw del.error;if(ids.length){const ins=await snicSupabase.from('rol_permisos').insert(ids.map(id=>({rol_id:rid,permiso_id:id})));if(ins.error)throw ins.error}close();await loadAdministrationFromSupabase();render('administracion')}catch(err){alert('No se pudo guardar el rol: '+err.message)}}}
 function printDoc(type,id){
  let arr=type==='quote'?db.cotizaciones:db.facturas,x=arr.find(a=>a.id===id);
  if(!x)return;
@@ -272,6 +542,14 @@ function bind(v){
  $$('[data-print]').forEach(b=>b.onclick=()=>{let [t,id]=b.dataset.print.split(':');printDoc(t,id)});
  $$('[data-edit-profile]').forEach(b=>b.onclick=()=>userForm(adminState.profiles.find(x=>x.id===b.dataset.editProfile)));
  $$('[data-edit-role]').forEach(b=>b.onclick=()=>roleForm(adminState.roles.find(x=>x.id===b.dataset.editRole)));
+ $('#newUser')?.addEventListener('click', () => {
+  if (!can('administracion')) {
+    alert('No tienes permiso.');
+    return;
+  }
+
+  userForm();
+});
  $('#refreshAdmin')?.addEventListener('click',async()=>{try{await loadAdministrationFromSupabase();render('administracion')}catch(e){alert('No se pudo actualizar: '+e.message)}});
  $('#newRole')?.addEventListener('click',()=>roleCan('administracion')&&roleForm());
  $('#settingsForm')?.addEventListener('submit',e=>{e.preventDefault();let d=Object.fromEntries(new FormData(e.target));d.iva=+d.iva||0;db.config={...db.config,...d};save();alert('Configuración guardada.')});
